@@ -119,7 +119,7 @@ impl Window {
                     if let Some(time_ms) = time {
                         self.lyrics_page
                             .update_position(Duration::from_millis(time_ms));
-                }
+                    }
                 }
                 UpdateUI::PlayerState {
                     playing,
