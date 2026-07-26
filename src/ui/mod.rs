@@ -1,5 +1,6 @@
 use core::cell::Cell;
 use gtk::gdk;
+use gtk::glib;
 use std::sync::OnceLock;
 
 mod actions;
@@ -71,12 +72,13 @@ pub fn ui_tx() -> &'static async_channel::Sender<UpdateUI> {
 #[inline]
 pub fn load_css() {
     let provider = gtk::CssProvider::new();
-    provider.load_from_data("
+    let css = "
         list.lyrics-list {
             background-color: transparent;
             color: #fff;
         }
-    ");
+    ";
+    provider.load_from_bytes(&glib::Bytes::from(css.as_bytes()));
     if let Some(display) = gtk::gdk::Display::default() {
         gtk::style_context_add_provider_for_display(
             &display,
@@ -86,6 +88,11 @@ pub fn load_css() {
     }
 }
 
+/// Initializes the UI channel sender accessed through `ui_tx()`.
+///
+/// # Errors
+///
+/// The function returns an error if `UI_TX` has already been initialized.
 pub fn init_ui_tx(
     ui_tx: async_channel::Sender<UpdateUI>,
 ) -> Result<(), async_channel::Sender<UpdateUI>> {
