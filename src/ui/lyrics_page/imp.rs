@@ -1,7 +1,7 @@
 use adw::subclass::prelude::*;
-use gtk::prelude::*;
 use gtk::CompositeTemplate;
 use gtk::glib;
+use gtk::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::time::Duration;
 
@@ -40,8 +40,8 @@ impl ObjectSubclass for LyricsPage {
 }
 impl ObjectImpl for LyricsPage {
     fn constructed(&self) {
-        self.parent_constructed();        
-        self.lyrics_box.add_css_class("lyrics-list");        
+        self.parent_constructed();
+        self.lyrics_box.add_css_class("lyrics-list");
         self.obj().set_content("", "");
     }
 }
