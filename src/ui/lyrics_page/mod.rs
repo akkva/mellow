@@ -27,7 +27,11 @@ impl LyricsPage {
 
         let parsed_lines = parse_lrc(lrc_raw);
         for line in &parsed_lines {
-            let label_text = if line.text.is_empty() { " " } else { &line.text };
+            let label_text = if line.text.is_empty() {
+                " "
+            } else {
+                &line.text
+            };
             let label = gtk::Label::builder()
                 .label(label_text)
                 .justify(gtk::Justification::Center)
@@ -45,46 +49,45 @@ impl LyricsPage {
     pub fn update_position(&self, position: Duration) {
         let imp = self.imp();
         imp.lyrics_box.queue_allocate();
-        
         let lines = imp.lines.borrow();
         if lines.is_empty() {
             return;
         }
-        let mut target_index = lines
-            .iter()
-            .rposition(|line| line.timestamp <= position);
-        if let Some(idx) = target_index {
-            if idx > 0 && lines[idx].timestamp == lines[idx - 1].timestamp {
-                target_index = Some(idx - 1);
-            }
+        let mut target_index = lines.iter().rposition(|line| line.timestamp <= position);
+        if let Some(idx) = target_index
+            && idx > 0
+            && lines[idx].timestamp == lines[idx - 1].timestamp
+        {
+            target_index = Some(idx - 1);
         }
         if target_index != imp.current_index.get() {
-            if let Some(old_idx) = imp.current_index.get() {
-                if let Some(row) = imp.lyrics_box.row_at_index(old_idx as i32) {
-                    if let Some(label) = row.child().and_downcast::<gtk::Label>() {
-                        label.remove_css_class("title-2");
-                        label.add_css_class("dim-label");
-                    }
-                }
+            if let Some(old_idx) = imp.current_index.get()
+                && let Some(row) = imp.lyrics_box.get().row_at_index(old_idx as i32)
+                && let Some(label) = row.child().and_downcast::<gtk::Label>()
+            {
+                label.remove_css_class("title-2");
+                label.add_css_class("dim-label");
             }
-            if let Some(new_idx) = target_index {
-                if let Some(row) = imp.lyrics_box.row_at_index(new_idx as i32) {
-                    if let Some(label) = row.child().and_downcast::<gtk::Label>() {
-                        label.remove_css_class("dim-label");
-                        label.add_css_class("title-2");
-                    }
-                    let vadjustment = imp.scrolled_window.vadjustment();
-                    let row_alloc = row.allocation();
-                    let row_center = row_alloc.y() as f64 + (row_alloc.height() as f64 / 2.0);
-                    let visible_height = imp.scrolled_window.height() as f64;
-                    let target_scroll = row_center - (visible_height / 2.0);
-                    let max_scroll = vadjustment.upper() - vadjustment.page_size();
-                    let clamped_scroll = target_scroll.clamp(0.0, max_scroll.max(0.0));
-                    let adj = vadjustment.clone();
-                    glib::idle_add_local_once(move || {
-                        adj.set_value(clamped_scroll);
-                    });
-                }
+            if let Some(new_idx) = target_index
+                && let Some(row) = imp.lyrics_box.get().row_at_index(new_idx as i32)
+                && let Some(label) = row.child().and_downcast::<gtk::Label>()
+            {
+                label.remove_css_class("dim-label");
+                label.add_css_class("title-2");
+                let point = row
+                    .compute_point(&imp.lyrics_box.get(), &gtk::graphene::Point::new(0.0, 0.0))
+                    .unwrap_or_else(|| gtk::graphene::Point::new(0.0, 0.0));
+                let row_y = point.y() as f64;
+                let row_height = row.height() as f64;
+                let row_center = row_y + (row_height / 2.0);
+                let vadjustment = imp.scrolled_window.vadjustment();
+                let visible_height = imp.scrolled_window.height() as f64;
+                let target_scroll = row_center - (visible_height / 2.0);
+                let max_scroll = vadjustment.upper() - vadjustment.page_size();
+                let clamped_scroll = target_scroll.clamp(0.0, max_scroll.max(0.0));
+                glib::idle_add_local_once(move || {
+                    vadjustment.set_value(clamped_scroll);
+                });
             }
             imp.current_index.set(target_index);
         }
@@ -101,7 +104,7 @@ fn parse_lrc(lrc_raw: &str) -> Vec<imp::LyricLine> {
                 if let Some(duration) = parse_time(time_str) {
                     lines.push(imp::LyricLine {
                         timestamp: duration,
-                        text: parts[1].trim().to_string(),
+                        text: parts[1].trim().to_owned(),
                     });
                 }
             }
