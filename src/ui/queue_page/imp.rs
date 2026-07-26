@@ -21,6 +21,8 @@ const PAN_REPEAT_DELAY: Duration = Duration::from_millis(165);
 const PAN_REPEAT_DELAY_MIN: Duration = Duration::from_millis(5);
 const PAN_REPEAT_SPEEDUP: Duration = Duration::from_millis(2);
 
+type Selections = Vec<(u32, QueueItem)>;
+
 #[derive(Default, CompositeTemplate)]
 #[template(file = "queue_page.ui")]
 pub struct QueuePage {
@@ -36,7 +38,7 @@ pub struct QueuePage {
     #[template_child]
     pub remove_selection: TemplateChild<gtk::Button>,
 
-    pub selections: Rc<RefCell<Option<Vec<(u32, QueueItem)>>>>,
+    pub selections: Rc<RefCell<Option<Selections>>>,
 
     #[template_child]
     list_box: TemplateChild<gtk::ListBox>,
@@ -631,26 +633,35 @@ impl QueuePage {
             row_imp.selection_toggle.set_visible(selection_mode);
             row_imp.open_subpage_icon.set_visible(!selection_mode);
 
-            let selections = Rc::clone(&selections);
-            let queue_index = queue_index as usize;
-            queue_row.connect_activated(glib::clone!(
-                #[weak(rename_to=queue_page)]
+            row_imp.selection_toggle.connect_toggled(glib::clone!(
+                #[weak(rename_to = queue_page)]
                 queue_page,
                 #[weak]
                 queue_item_object,
-                move |_| match &mut *selections.borrow_mut() {
-                    None => (ui_tx().send_blocking(UpdateUI::OpenQueueSubpage(queue_index)))
-                        .expect(EXP_RX),
-                    Some(selections) => {
-                        let selected = queue_page.toggle_selected_item(
-                            (
-                                queue_item_object.index(),
-                                queue_item_object.queue_item().clone(),
-                            ),
-                            selections,
-                        );
-                        queue_item_object.set_selected(selected);
-                    }
+                #[strong]
+                selections,
+                move |_| if let Some(selections) = &mut *selections.borrow_mut() {
+                    let selected = queue_page.toggle_selected_item(
+                        (
+                            queue_item_object.index(),
+                            queue_item_object.queue_item().clone(),
+                        ),
+                        selections,
+                    );
+                    queue_item_object.set_selected(selected);
+                }
+            ));
+
+            let queue_index = queue_index as usize;
+            queue_row.connect_activated(glib::clone!(
+                #[weak(rename_to = selection_toggle)]
+                row_imp.selection_toggle,
+                #[strong]
+                selections,
+                move |_| if selections.borrow().is_none() {
+                    (ui_tx().send_blocking(UpdateUI::OpenQueueSubpage(queue_index))).expect(EXP_RX);
+                } else {
+                    selection_toggle.activate();
                 }
             ));
 
